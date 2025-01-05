@@ -1,6 +1,6 @@
 {
   "name": "@zkpassport/test-utils",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "types": "./dist/types/index.d.ts",
   "files": [
@@ -10,8 +10,8 @@
   ],
   "exports": {
     "./asn": {
-      "import": "./dist/esm/asn/index.js",
-      "types": "./dist/types/asn/index.d.ts"
+      "import": "./dist/esm/asn.js",
+      "types": "./dist/types/asn.d.ts"
     },
     "./test-helper": {
       "import": "./dist/esm/test-helper.js",
@@ -26,15 +26,12 @@
       "types": "./dist/types/passport-generator.d.ts"
     },
     "./circuits": {
-      "import": "./dist/esm/circuits/index.js",
-      "types": "./dist/types/circuits/index.d.ts"
+      "import": "./dist/esm/circuits.js",
+      "types": "./dist/types/circuits.d.ts"
     },
     "./utils": {
       "import": "./dist/esm/utils.js",
       "types": "./dist/types/utils.d.ts"
-    },
-    "./types": {
-      "types": "./dist/types/types/index.d.ts"
     }
   },
   "sideEffects": false,
