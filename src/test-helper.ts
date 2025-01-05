@@ -1,0 +1,87 @@
+import fs from 'fs/promises'
+import path from 'path'
+import { Binary } from "@zkpassport/utils/binary"
+import { PassportReader } from "@zkpassport/utils/passport-reader"
+import { CSCMasterlist, PassportViewModel, Query } from "@zkpassport/utils/types"
+import {
+  getDiscloseCircuitInputs,
+  getDSCCircuitInputs,
+  getIDDataCircuitInputs,
+  getIntegrityCheckCircuitInputs,
+} from "@zkpassport/utils/circuit-matcher"
+import { InputMap } from "@noir-lang/noir_js"
+
+type CircuitType = "dsc" | "id" | "integrity" | "disclose"
+
+export class TestHelper {
+  private passportReader = new PassportReader()
+  public passport!: PassportViewModel
+  private masterlist!: CSCMasterlist
+  private maxTbsLength!: number
+
+  setMasterlist(masterlist: CSCMasterlist) {
+    this.masterlist = masterlist
+  }
+
+  setMaxTbsLength(maxTbsLength: number) {
+    this.maxTbsLength = maxTbsLength
+  }
+
+  async generateCircuitInputs(circuitType: CircuitType): Promise<InputMap> {
+    switch (circuitType) {
+      case "dsc": {
+        const inputs = await getDSCCircuitInputs(this.passport as any, this.maxTbsLength, this.masterlist)
+        if (!inputs) throw new Error("Unable to generate DSC circuit inputs")
+        return {
+          ...inputs,
+          salt: 0,
+        }
+      }
+      case "id": {
+        const inputs = await getIDDataCircuitInputs(this.passport as any, this.maxTbsLength)
+        if (!inputs) throw new Error("Unable to generate ID data circuit inputs")
+        return {
+          ...inputs,
+          salt: 0,
+        }
+      }
+      case "integrity": {
+        const inputs = await getIntegrityCheckCircuitInputs(this.passport as any, this.maxTbsLength)
+        if (!inputs) throw new Error("Unable to generate integrity check circuit inputs")
+        return {
+          ...inputs,
+          salt: 0,
+        }
+      }
+      case "disclose": {
+        const query: Query = {
+          fullname: { disclose: true },
+          nationality: { disclose: true },
+          birthdate: { disclose: true },
+        }
+        const inputs = await getDiscloseCircuitInputs(this.passport as any, query)
+        if (!inputs) throw new Error("Unable to generate disclose circuit inputs")
+        return {
+          ...inputs,
+          salt: 0,
+        }
+      }
+    }
+  }
+
+  public async loadPassportDataFromFile(dg1FileName: string, sodFileName: string): Promise<void> {
+    const FIXTURES_PATH = "src/ts/tests/fixtures"
+    if (!fs || !path) {
+      throw new Error('File system operations are only available in Node.js environment');
+    }
+    const dg1 = Binary.from(await fs.readFile(path.resolve(FIXTURES_PATH, dg1FileName)))
+    const sod = Binary.from(await fs.readFile(path.resolve(FIXTURES_PATH, sodFileName)))
+    this.passportReader.loadPassport(dg1, sod)
+    this.passport = this.passportReader.getPassportViewModel() as any
+  }
+
+  public async loadPassport(dg1: Binary, sod: Binary): Promise<void> {
+    this.passportReader.loadPassport(dg1, sod)
+    this.passport = this.passportReader.getPassportViewModel() as any
+  }
+}
