@@ -1,6 +1,7 @@
 import { CompiledCircuit } from "@noir-lang/types"
 import { readFile } from 'fs/promises'
 import { createFileManager, compile_program } from '@noir-lang/noir_wasm'
+import { AsnSerializer } from "@peculiar/asn1-schema"
 
 /**
  * Loads a circuit manifest from a JSON file.
@@ -24,4 +25,8 @@ export async function compileCircuit(path: string): Promise<CompiledCircuit> {
   const fm = createFileManager(path)
   const myCompiledCode = await compile_program(fm)
   return myCompiledCode.program
+}
+
+export function serializeAsn(obj: any): ArrayBuffer {
+  return AsnSerializer.serialize(obj)
 }

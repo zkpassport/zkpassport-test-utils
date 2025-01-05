@@ -113,7 +113,7 @@ export function generateSampleDSC(): Certificate {
   return certificate
 }
 
-export async function generateSod(dg1: Binary, certificates: Certificate[] = []) {
+export function generateSod(dg1: Binary, certificates: Certificate[] = []) {
   // Digest Algorithms
   const digestAlgorithms = new DigestAlgorithmIdentifiers([
     new DigestAlgorithmIdentifier({

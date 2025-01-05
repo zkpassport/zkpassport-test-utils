@@ -5,15 +5,14 @@
     "resolveJsonModule": true,
     "experimentalDecorators": true,
     "skipLibCheck": true,
-    "target": "ESNext",
+    "target": "esnext",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
-      "@/types": ["src/types/index.ts"]
+      "@/*": ["./src/*"]
     },
     "declaration": true,
     "isolatedModules": true,

@@ -1,46 +1,41 @@
 {
   "name": "@zkpassport/test-utils",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
-  "types": "./dist/types/index.d.ts",
   "files": [
-    "src/",
-    "dist/",
-    "tsconfig.json"
+    "src",
+    "dist"
   ],
   "exports": {
     "./asn": {
-      "import": "./dist/esm/asn.js",
-      "types": "./dist/types/asn.d.ts"
+      "default": "./dist/asn.js",
+      "types": "./dist/asn.d.ts"
     },
     "./test-helper": {
-      "import": "./dist/esm/test-helper.js",
-      "types": "./dist/types/test-helper.d.ts"
+      "import": "./dist/test-helper.js",
+      "types": "./dist/test-helper.d.ts"
     },
     "./sod-generator": {
-      "import": "./dist/esm/sod-generator.js",
-      "types": "./dist/types/sod-generator.d.ts"
+      "import": "./dist/sod-generator.js",
+      "types": "./dist/sod-generator.d.ts"
     },
     "./passport-generator": {
-      "import": "./dist/esm/passport-generator.js",
-      "types": "./dist/types/passport-generator.d.ts"
+      "import": "./dist/passport-generator.js",
+      "types": "./dist/passport-generator.d.ts"
     },
     "./circuits": {
-      "import": "./dist/esm/circuits.js",
-      "types": "./dist/types/circuits.d.ts"
+      "import": "./dist/circuits.js",
+      "types": "./dist/circuits.d.ts"
     },
     "./utils": {
-      "import": "./dist/esm/utils.js",
-      "types": "./dist/types/utils.d.ts"
+      "import": "./dist/utils.js",
+      "types": "./dist/utils.d.ts"
     }
   },
   "sideEffects": false,
   "scripts": {
-    "prepare": "npm i --save-dev @types/node && npm run build:esm && npm run build:types",
-    "build": "npm run build:esm && npm run build:types",
-    "build:esm": "tsc --outDir dist/esm --module esnext",
-    "build:cjs": "tsc --outDir dist/cjs --module commonjs",
-    "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist/types"
+    "prepare": "npm i --save-dev @types/node && npm run build",
+    "build": "tsc"
   },
   "devDependencies": {
     "@noir-lang/types": "1.0.0-beta.1",
@@ -65,8 +60,8 @@
     "@peculiar/asn1-schema": "^2.3.13",
     "@peculiar/asn1-x509": "^2.3.13",
     "@peculiar/x509": "^1.12.3",
-    "@zkpassport/poseidon2": "^0.5.0",
-    "@zkpassport/utils": "^0.1.7",
+    "@zkpassport/poseidon2": "^0.5.1",
+    "@zkpassport/utils": "^0.1.8",
     "date-fns": "^4.1.0",
     "i18n-iso-countries": "^7.13.0",
     "node-forge": "^1.3.1"
