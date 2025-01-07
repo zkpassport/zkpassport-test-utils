@@ -17,41 +17,27 @@ export class TestHelper {
   private passportReader = new PassportReader()
   public passport!: PassportViewModel
   private masterlist!: CSCMasterlist
-  private maxTbsLength!: number
 
   setMasterlist(masterlist: CSCMasterlist) {
     this.masterlist = masterlist
   }
 
-  setMaxTbsLength(maxTbsLength: number) {
-    this.maxTbsLength = maxTbsLength
-  }
-
   async generateCircuitInputs(circuitType: CircuitType): Promise<InputMap> {
     switch (circuitType) {
       case "dsc": {
-        const inputs = await getDSCCircuitInputs(this.passport as any, this.maxTbsLength, this.masterlist)
+        const inputs = await getDSCCircuitInputs(this.passport as any, 0n, undefined, this.masterlist)
         if (!inputs) throw new Error("Unable to generate DSC circuit inputs")
-        return {
-          ...inputs,
-          salt: 0,
-        }
+        return inputs
       }
       case "id": {
-        const inputs = await getIDDataCircuitInputs(this.passport as any, this.maxTbsLength)
+        const inputs = await getIDDataCircuitInputs(this.passport as any, 0n)
         if (!inputs) throw new Error("Unable to generate ID data circuit inputs")
-        return {
-          ...inputs,
-          salt: 0,
-        }
+        return inputs
       }
       case "integrity": {
-        const inputs = await getIntegrityCheckCircuitInputs(this.passport as any, this.maxTbsLength)
+        const inputs = await getIntegrityCheckCircuitInputs(this.passport as any, 0n)
         if (!inputs) throw new Error("Unable to generate integrity check circuit inputs")
-        return {
-          ...inputs,
-          salt: 0,
-        }
+        return inputs
       }
       case "disclose": {
         const query: Query = {
@@ -59,12 +45,9 @@ export class TestHelper {
           nationality: { disclose: true },
           birthdate: { disclose: true },
         }
-        const inputs = await getDiscloseCircuitInputs(this.passport as any, query)
+        const inputs = await getDiscloseCircuitInputs(this.passport as any, query, 0n)
         if (!inputs) throw new Error("Unable to generate disclose circuit inputs")
-        return {
-          ...inputs,
-          salt: 0,
-        }
+        return inputs
       }
     }
   }
