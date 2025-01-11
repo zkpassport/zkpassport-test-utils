@@ -1,35 +1,41 @@
 {
   "name": "@zkpassport/test-utils",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "files": [
     "src",
     "dist"
   ],
   "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
     "./asn": {
-      "default": "./dist/asn.js",
-      "types": "./dist/asn.d.ts"
+      "types": "./dist/asn.d.ts",
+      "default": "./dist/asn.js"
     },
     "./test-helper": {
-      "import": "./dist/test-helper.js",
-      "types": "./dist/test-helper.d.ts"
+      "types": "./dist/test-helper.d.ts",
+      "default": "./dist/test-helper.js"
     },
     "./sod-generator": {
-      "import": "./dist/sod-generator.js",
-      "types": "./dist/sod-generator.d.ts"
+      "types": "./dist/sod-generator.d.ts",
+      "default": "./dist/sod-generator.js"
     },
     "./passport-generator": {
-      "import": "./dist/passport-generator.js",
-      "types": "./dist/passport-generator.d.ts"
+      "types": "./dist/passport-generator.d.ts",
+      "default": "./dist/passport-generator.js"
     },
     "./circuits": {
-      "import": "./dist/circuits.js",
-      "types": "./dist/circuits.d.ts"
+      "types": "./dist/circuits.d.ts",
+      "default": "./dist/circuits.js"
     },
     "./utils": {
-      "import": "./dist/utils.js",
-      "types": "./dist/utils.d.ts"
+      "types": "./dist/utils.d.ts",
+      "default": "./dist/utils.js"
     }
   },
   "sideEffects": false,
@@ -61,7 +67,7 @@
     "@peculiar/asn1-x509": "^2.3.13",
     "@peculiar/x509": "^1.12.3",
     "@zkpassport/poseidon2": "^0.5.1",
-    "@zkpassport/utils": "^0.1.12",
+    "@zkpassport/utils": "^0.1.15",
     "date-fns": "^4.1.0",
     "i18n-iso-countries": "^7.13.0",
     "node-forge": "^1.3.1"
