@@ -217,7 +217,8 @@ export function generateSignedAttrs(eContentHash: Binary) {
   })
   const signingTime = new Attribute({
     attrType: "1.2.840.113549.1.9.5", // id_signingTime
-    attrValues: [AsnConvert.serialize(new SigningTime(new Date(2024, 5, 1)))],
+    // Fix the time in UTC to avoid timezone issues
+    attrValues: [AsnConvert.serialize(new SigningTime(new Date("2024-05-01T00:00:00Z")))],
   })
   const messageDigest = new Attribute({
     attrType: "1.2.840.113549.1.9.4", // id_messageDigest
