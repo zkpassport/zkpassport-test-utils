@@ -40,11 +40,11 @@ export function generateSigningCertificates(
   cscCert.validity.notAfter.setFullYear(cscCert.validity.notBefore.getFullYear() + 10)
   cscCert.setSubject([
     { name: "commonName", value: "ZKpassport Test Root CSC" },
-    { name: "countryName", value: "AUS" },
+    { name: "countryName", value: "AU" },
   ])
   cscCert.setIssuer([
     { name: "commonName", value: "ZKpassport Test Root CSC" },
-    { name: "countryName", value: "AUS" },
+    { name: "countryName", value: "AU" },
   ])
   const cscSubjectKeyIdentifier = cscCert.generateSubjectKeyIdentifier().getBytes()
   cscCert.setExtensions([
