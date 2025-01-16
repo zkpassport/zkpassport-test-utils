@@ -30,6 +30,12 @@ export class Circuit {
     }
   }
 
+  async destroy() {
+    if (!this.backend) return
+    await this.backend!.destroy()
+    this.backend = undefined
+  }
+
   async solve(inputs: InputMap): Promise<Uint8Array> {
     await this.init()
     const { witness } = await this.noir!.execute(inputs)
@@ -67,7 +73,7 @@ export class Circuit {
   }
 
   static from(fileName: string): Circuit {
-    if (!path) throw new Error("Path is not available in this environment") 
+    if (!path) throw new Error("Path is not available in this environment")
     const isFullPath = path.isAbsolute(fileName) || fileName.includes("/")
     const circuitPath = isFullPath ? fileName : path.resolve(`target/${fileName}.json`)
     try {
