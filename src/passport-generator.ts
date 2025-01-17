@@ -1,108 +1,275 @@
 import { Binary } from "@zkpassport/utils/binary"
 import { SignedData, SignerInfo, SignerInfos } from "@peculiar/asn1-cms"
-import { AsnConvert, AsnSerializer, OctetString } from "@peculiar/asn1-schema"
-import { Certificate } from "@peculiar/asn1-x509"
-import forge from "node-forge"
+import { AsnConvert, AsnSerializer, OctetString, BitString } from "@peculiar/asn1-schema"
+import { 
+  Certificate, 
+  Name,
+  TBSCertificate,
+  Version,
+  BasicConstraints,
+  KeyUsage,
+  SubjectKeyIdentifier,
+  AuthorityKeyIdentifier,
+  AlgorithmIdentifier,
+  SubjectPublicKeyInfo,
+  Validity,
+  RelativeDistinguishedName,
+  AttributeTypeAndValue,
+  AttributeValue,
+  KeyIdentifier,
+} from "@peculiar/asn1-x509"
+import { 
+  id_sha256, 
+  id_rsaEncryption, 
+  id_sha256WithRSAEncryption,
+  RSAPublicKey,
+  RSAPrivateKey
+} from "@peculiar/asn1-rsa"
+import { id_ecPublicKey, id_secp256r1, id_secp384r1, id_secp521r1, ECParameters, id_ecdsaWithSHA256, id_ecdsaWithSHA512, id_ecdsaWithSHA384 } from "@peculiar/asn1-ecc"
+import { cryptoProvider, PemConverter, X509CertificateGenerator, Extension } from "@peculiar/x509"
+import { randomBytes, createHash } from "crypto"
 import { ASN } from "./asn"
 import { wrapSodInContentInfo } from "./sod-generator"
 import fs from "fs"
+import { Crypto } from "@peculiar/webcrypto"
 
-export function generateSigningCertificates(
-  {
-    cscSigningHashAlgorithm,
-    cscKeySize,
-    dscKeySize,
-    dscKeypair,
-  }: {
-    cscSigningHashAlgorithm:
-      | "md5"
-      | "sha1"
-      | "sha256"
-      | "sha384"
-      | "sha512"
-      | "sha512/224"
-      | "sha512/256"
-    cscKeySize: number
-    dscKeySize?: number
-    dscKeypair?: forge.pki.rsa.KeyPair
-  } = {
-    cscSigningHashAlgorithm: "sha256",
-    cscKeySize: 4096,
-    dscKeySize: 2048,
-  },
-) {
-  // Create the root CSC with a 4096-bit RSA key pair
-  const cscKeys = forge.pki.rsa.generateKeyPair({ bits: cscKeySize })
-  const cscCert = forge.pki.createCertificate()
-  cscCert.publicKey = cscKeys.publicKey
-  cscCert.validity.notBefore = new Date()
-  cscCert.validity.notAfter = new Date()
-  cscCert.validity.notAfter.setFullYear(cscCert.validity.notBefore.getFullYear() + 10)
-  cscCert.setSubject([
-    { name: "commonName", value: "ZKpassport Test Root CSC" },
-    { name: "countryName", value: "AU" },
-  ])
-  cscCert.setIssuer([
-    { name: "commonName", value: "ZKpassport Test Root CSC" },
-    { name: "countryName", value: "AU" },
-  ])
-  const cscSubjectKeyIdentifier = cscCert.generateSubjectKeyIdentifier().getBytes()
-  cscCert.setExtensions([
-    { name: "basicConstraints", cA: true },
-    { name: "keyUsage", keyCertSign: true, digitalSignature: true },
-    { name: "subjectKeyIdentifier", keyid: cscSubjectKeyIdentifier },
-  ])
-  cscCert.sign(cscKeys.privateKey, forge.md.algorithms[cscSigningHashAlgorithm].create())
+const crypto = new Crypto()
+cryptoProvider.set(crypto as any)
 
-  // Use existing DSC keypair if provided, otherwise generate a new one
-  const dscKeys = dscKeypair || forge.pki.rsa.generateKeyPair({ bits: dscKeySize })
-  const dscCert = forge.pki.createCertificate()
-  dscCert.publicKey = dscKeys.publicKey
-  dscCert.serialNumber = "2"
-  dscCert.validity.notBefore = new Date()
-  dscCert.validity.notAfter = new Date()
-  dscCert.validity.notAfter.setFullYear(dscCert.validity.notBefore.getFullYear() + 2)
-  dscCert.setSubject([{ name: "commonName", value: "ZKpassport Test DSC" }])
-  dscCert.setIssuer(cscCert.subject.attributes)
-  const dscSubjectKeyIdentifier = dscCert.generateSubjectKeyIdentifier().getBytes()
-  dscCert.setExtensions([
-    { name: "basicConstraints", cA: false },
-    { name: "keyUsage", digitalSignature: true },
-    { name: "subjectKeyIdentifier", keyid: dscSubjectKeyIdentifier },
-    { name: "authorityKeyIdentifier", keyIdentifier: cscSubjectKeyIdentifier },
-  ])
+export type EcdsaCurve = "P-256" | "P-384" | "P-521"
 
-  // Sign the DSC's TBS with root CSC's private key
-  dscCert.sign(cscKeys.privateKey, forge.md.sha256.create())
+export type HashAlgorithm = "SHA-256" | "SHA-384" | "SHA-512"
 
-  // Convert to forge.asn1.Asn1 type
-  const cscAsn1 = forge.pki.certificateToAsn1(cscCert)
-  const dscAsn1 = forge.pki.certificateToAsn1(dscCert)
+export type KeyPair = {
+  publicKey: Uint8Array
+  privateKey: Uint8Array
+  cryptoKey: {
+    publicKey: CryptoKey
+    privateKey: CryptoKey
+  }
+} & (
+  | { type: "RSA"; modulusLength: number }
+  | { type: "ECDSA"; curve: EcdsaCurve }
+)
 
-  // Convert to PEM format
-  const cscPem = forge.pki.certificateToPem(cscCert)
-  const dscPem = forge.pki.certificateToPem(dscCert)
+export async function generateRsaKeyPair(keySize: number, hashAlgorithm: HashAlgorithm = "SHA-256"): Promise<KeyPair> {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: keySize,
+      publicExponent: new Uint8Array([1, 0, 1]), // 65537
+      hash: hashAlgorithm,
+    },
+    true,
+    ["sign", "verify"]
+  )
 
-  // Convert to @peculiar/asn1-x509 Certificate type
-  const dscBuffer = new Uint8Array(Buffer.from(forge.asn1.toDer(dscAsn1).getBytes(), "binary"))
-  const dsc = AsnConvert.parse(dscBuffer, Certificate)
-  const cscBuffer = new Uint8Array(Buffer.from(forge.asn1.toDer(cscAsn1).getBytes(), "binary"))
-  const csc = AsnConvert.parse(cscBuffer, Certificate)
+  // Export the keys
+  const publicKeySpki = await crypto.subtle.exportKey("spki", keyPair.publicKey)
+  const privateKeyPkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey)
 
-  return { csc, cscPem, cscKeys, dsc, dscPem, dscKeys }
+  return {
+    publicKey: new Uint8Array(publicKeySpki),
+    privateKey: new Uint8Array(privateKeyPkcs8),
+    type: "RSA",
+    modulusLength: keySize,
+    cryptoKey: {
+      publicKey: keyPair.publicKey,
+      privateKey: keyPair.privateKey
+    }
+  }
 }
 
-export function signSodWithRsaKey(sod: SignedData, rsaKey: forge.pki.rsa.KeyPair["privateKey"]) {
-  // Serialise signedAttrs using an AttributeSet container to ensure bytes are correct
+export async function generateEcdsaKeyPair(curve: EcdsaCurve): Promise<KeyPair> {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "ECDSA",
+      namedCurve: curve,
+    },
+    true,
+    ["sign", "verify"]
+  )
+
+  const publicKeySpki = await crypto.subtle.exportKey("spki", keyPair.publicKey)
+  const privateKeyPkcs8 = await crypto.subtle.exportKey("pkcs8", keyPair.privateKey)
+
+  return {
+    publicKey: new Uint8Array(publicKeySpki),
+    privateKey: new Uint8Array(privateKeyPkcs8),
+    type: "ECDSA",
+    curve,
+    cryptoKey: {
+      publicKey: keyPair.publicKey,
+      privateKey: keyPair.privateKey
+    }
+  }
+}
+
+export async function generateSigningCertificates(
+  {
+    cscSigningHashAlgorithm = "SHA-256",
+    cscKeyType = "ECDSA",
+    cscCurve = "P-521",
+    dscSigningHashAlgorithm = "SHA-256",
+    dscKeyType = "ECDSA",
+    dscCurve = "P-256",
+    cscKeySize = 4096,
+    dscKeySize = 2048,
+    dscKeypair,
+  }: {
+    cscSigningHashAlgorithm?: HashAlgorithm
+    cscKeyType?: "RSA" | "ECDSA"
+    dscSigningHashAlgorithm?: HashAlgorithm
+    dscKeyType?: "RSA" | "ECDSA"
+    cscCurve?: EcdsaCurve
+    dscCurve?: EcdsaCurve
+    cscKeySize?: number
+    dscKeySize?: number
+    dscKeypair?: KeyPair
+  } = {},
+) {
+  // Generate or use provided key pairs
+  const cscKeys = cscKeyType === "RSA" 
+    ? await generateRsaKeyPair(cscKeySize)
+    : await generateEcdsaKeyPair(cscCurve)
+
+  const dscKeys = dscKeypair || (
+    dscKeyType === "RSA" 
+      ? await generateRsaKeyPair(dscKeySize)
+      : await generateEcdsaKeyPair(dscCurve)
+  )
+
+  const cscSubjectKeyIdentifier = await crypto.subtle.digest("SHA-256", cscKeys.publicKey)
+  const dscSubjectKeyIdentifier = await crypto.subtle.digest("SHA-256", dscKeys.publicKey)
+
+  // Create the root CSC
+  const cscCert = await generateCertificate({
+    subject: [
+      { type: "2.5.4.3", value: "ZKpassport Test Root CSC" },
+      { type: "2.5.4.6", value: "AU" },
+    ],
+    issuer: [
+      { type: "2.5.4.3", value: "ZKpassport Test Root CSC" },
+      { type: "2.5.4.6", value: "AU" },
+    ],
+    publicKey: cscKeys.publicKey,
+    signingKeyPair: cscKeys,
+    isCA: true,
+    validityYears: 10,
+    serialNumber: new Uint8Array([0x01]),
+    subjectKeyIdentifier: new Uint8Array(cscSubjectKeyIdentifier),
+  })
+
+  // Create the DSC
+  const dscCert = await generateCertificate({
+    subject: [{ type: "2.5.4.3", value: "ZKpassport Test DSC" }],
+    issuer: [
+      { type: "2.5.4.3", value: "ZKpassport Test Root CSC" },
+      { type: "2.5.4.6", value: "AU" },
+    ],
+    publicKey: dscKeys.publicKey,
+    signingKeyPair: cscKeys,
+    isCA: false,
+    validityYears: 2,
+    serialNumber: new Uint8Array([0x02]),
+    subjectKeyIdentifier: new Uint8Array(dscSubjectKeyIdentifier),
+    authorityKeyIdentifier: new Uint8Array(cscSubjectKeyIdentifier),
+  })
+
+  // Convert to PEM format
+  const cscPem = PemConverter.encode(AsnSerializer.serialize(cscCert), "CERTIFICATE")
+  const dscPem = PemConverter.encode(AsnSerializer.serialize(dscCert), "CERTIFICATE")
+
+  return { 
+    csc: cscCert, 
+    cscPem,
+    cscKeys, 
+    dsc: dscCert, 
+    dscPem,
+    dscKeys 
+  }
+}
+
+interface CertificateParams {
+  subject: { type: string, value: string }[]
+  issuer: { type: string, value: string }[]
+  publicKey: Uint8Array
+  signingKeyPair: KeyPair
+  isCA: boolean
+  validityYears: number
+  serialNumber?: Uint8Array
+  subjectKeyIdentifier?: Uint8Array
+  authorityKeyIdentifier?: Uint8Array
+}
+
+export async function generateCertificate(params: CertificateParams): Promise<Certificate> {
+    const extensions = [
+      new Extension(
+        "2.5.29.19", // basicConstraints
+        true,
+        AsnSerializer.serialize(new BasicConstraints({ cA: params.isCA }))
+      ),
+      new Extension(
+        "2.5.29.15", // keyUsage
+        true,
+        AsnSerializer.serialize(new KeyUsage(
+            params.isCA ? 0x06 : 0x80 // keyCertSign + digitalSignature for CA, digitalSignature for DSC
+          ))
+      ),
+      ...(params.subjectKeyIdentifier ? [new Extension(
+        "2.5.29.14", // subjectKeyIdentifier
+        false,
+        AsnSerializer.serialize(
+            new SubjectKeyIdentifier(params.subjectKeyIdentifier)
+        )
+      )] : []),
+      ...(params.authorityKeyIdentifier ? [new Extension(
+        "2.5.29.35", // authorityKeyIdentifier
+        false,
+        AsnSerializer.serialize(
+          new AuthorityKeyIdentifier({
+            keyIdentifier: new KeyIdentifier(params.authorityKeyIdentifier)
+          })
+        )
+      )] : []),
+    ]
+
+    const x509Certificate = await X509CertificateGenerator.create({
+      serialNumber: params.serialNumber ? Buffer.from(params.serialNumber).toString('hex') : "1",
+      notBefore: new Date(),
+      notAfter: new Date(new Date().getTime() + params.validityYears * 365 * 24 * 60 * 60 * 1000),
+      extensions: extensions,
+      subject: params.subject.map(attr => `${attr.type}=${attr.value}`).join(','),
+      issuer: params.issuer.map(attr => `${attr.type}=${attr.value}`).join(','),
+      publicKey: params.publicKey,
+      signingKey: params.signingKeyPair.cryptoKey.privateKey,
+    }, crypto as any);
+
+    // Convert to ASN.1 Certificate
+    const pemString = await x509Certificate.toString('pem');
+    const rawCert = PemConverter.decode(pemString)[0];
+    return AsnConvert.parse(rawCert, Certificate);
+}
+
+export async function signSod(sod: SignedData, signerKeys: KeyPair, hashAlgorithm: HashAlgorithm) {
   const signedAttrs = new ASN.AttributeSet(sod.signerInfos[0]?.signedAttrs?.map((v) => v))
   const signedAttrsBytes = AsnConvert.serialize(signedAttrs)
 
-  // Sign signedAttrs using private key
-  const md = forge.md.sha256.create()
-  md.update(Buffer.from(signedAttrsBytes).toString("binary"))
-  let signature = rsaKey.sign(md)
+  const algorithm = signerKeys.type === "RSA" 
+    ? { name: "RSASSA-PKCS1-v1_5", hash: hashAlgorithm }
+    : { 
+        name: "ECDSA", 
+        hash: hashAlgorithm 
+      }
 
-  // Create new SOD with updated signature
+  const signature = new Uint8Array(
+    await crypto.subtle.sign(
+      algorithm,
+      signerKeys.cryptoKey.privateKey,
+      signedAttrsBytes
+    )
+  )
+
   const newSod = new SignedData({
     version: sod.version,
     digestAlgorithms: sod.digestAlgorithms,
@@ -115,7 +282,7 @@ export function signSodWithRsaKey(sod: SignedData, rsaKey: forge.pki.rsa.KeyPair
         digestAlgorithm: sod.signerInfos[0].digestAlgorithm,
         signedAttrs: sod.signerInfos[0].signedAttrs,
         signatureAlgorithm: sod.signerInfos[0].signatureAlgorithm,
-        signature: new OctetString(Buffer.from(signature, "binary")),
+        signature: new OctetString(signature),
       }),
     ]),
   })
@@ -146,10 +313,13 @@ export function saveDG1ToFile(dg1: Binary, filePath: string) {
   fs.writeFileSync(filePath, dg1.toBuffer())
 }
 
-export function saveDscKeypairToFile(keypair: forge.pki.rsa.KeyPair, filePath: string) {
+export function saveKeypairToFile(keypair: KeyPair, filePath: string, hashAlgorithm: HashAlgorithm = "SHA-256") {
   const keypairData = {
-    privateKey: forge.pki.privateKeyToPem(keypair.privateKey),
-    publicKey: forge.pki.publicKeyToPem(keypair.publicKey),
+    publicKey: Buffer.from(keypair.publicKey).toString('base64'),
+    privateKey: Buffer.from(keypair.privateKey).toString('base64'),
+    hashAlgorithm,
+    type: keypair.type,
+    ...(keypair.type === "RSA" ? { modulusLength: keypair.modulusLength } : { curve: keypair.curve })
   }
   if (!fs) {
     throw new Error('File system operations are only available in Node.js environment');
@@ -157,13 +327,80 @@ export function saveDscKeypairToFile(keypair: forge.pki.rsa.KeyPair, filePath: s
   fs.writeFileSync(filePath, JSON.stringify(keypairData, null, 2))
 }
 
-export function loadDscKeypairFromFile(filePath: string): forge.pki.rsa.KeyPair {
+export async function loadKeypairFromFile(filePath: string): Promise<KeyPair> {
   if (!fs) {
     throw new Error('File system operations are only available in Node.js environment');
   }
   const keypairData = JSON.parse(fs.readFileSync(filePath, "utf-8"))
-  return {
-    privateKey: forge.pki.privateKeyFromPem(keypairData.privateKey),
-    publicKey: forge.pki.publicKeyFromPem(keypairData.publicKey),
+  const publicKey = Buffer.from(keypairData.publicKey, 'base64')
+  const privateKey = Buffer.from(keypairData.privateKey, 'base64')
+  const hashAlgorithm = keypairData.hashAlgorithm || "SHA-256"
+
+  if (keypairData.type === "RSA") {
+    const publicKeyCrypto = await crypto.subtle.importKey(
+      "spki",
+      publicKey,
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        hash: hashAlgorithm,
+      },
+      true,
+      ["verify"]
+    )
+
+    const privateKeyCrypto = await crypto.subtle.importKey(
+      "pkcs8",
+      privateKey,
+      {
+        name: "RSASSA-PKCS1-v1_5",
+        hash: hashAlgorithm,
+      },
+      true,
+      ["sign"]
+    )
+
+    return {
+      publicKey,
+      privateKey,
+      type: "RSA",
+      modulusLength: keypairData.modulusLength,
+      cryptoKey: {
+        publicKey: publicKeyCrypto,
+        privateKey: privateKeyCrypto
+      }
+    }
+  } else {
+    const publicKeyCrypto = await crypto.subtle.importKey(
+      "spki",
+      publicKey,
+      {
+        name: "ECDSA",
+        namedCurve: keypairData.curve,
+      },
+      true,
+      ["verify"]
+    )
+
+    const privateKeyCrypto = await crypto.subtle.importKey(
+      "pkcs8",
+      privateKey,
+      {
+        name: "ECDSA",
+        namedCurve: keypairData.curve,
+      },
+      true,
+      ["sign"]
+    )
+
+    return {
+      publicKey,
+      privateKey,
+      type: "ECDSA",
+      curve: keypairData.curve,
+      cryptoKey: {
+        publicKey: publicKeyCrypto,
+        privateKey: privateKeyCrypto
+      }
+    }
   }
 }

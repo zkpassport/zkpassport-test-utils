@@ -144,7 +144,7 @@ export function generateSod(dg1: Binary, certificates: Certificate[] = []) {
     }),
     signedAttrs: signedAttrs,
     signatureAlgorithm: new AlgorithmIdentifier({
-      algorithm: "1.2.840.113549.1.1.11", // sha256WithRSAEncryption
+      algorithm: certificates[0].signatureAlgorithm.algorithm || "1.2.840.113549.1.1.11", // sha256WithRSAEncryption
     }),
     signature: new OctetString(new Uint8Array(256)),
   })

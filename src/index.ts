@@ -7,12 +7,14 @@ export { Circuit } from './circuits'
 // Export passport generation utilities
 export {
   generateSigningCertificates,
-  signSodWithRsaKey,
+  signSod,
   saveSodToFile,
   saveCertificateToFile,
   saveDG1ToFile,
-  saveDscKeypairToFile,
-  loadDscKeypairFromFile,
+  saveKeypairToFile,
+  loadKeypairFromFile,
+  generateRsaKeyPair,
+  generateEcdsaKeyPair,
 } from './passport-generator'
 
 // Export SOD generation utilities
