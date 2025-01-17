@@ -1,33 +1,15 @@
 import { Binary } from "@zkpassport/utils/binary"
 import { SignedData, SignerInfo, SignerInfos } from "@peculiar/asn1-cms"
-import { AsnConvert, AsnSerializer, OctetString, BitString } from "@peculiar/asn1-schema"
+import { AsnConvert, AsnSerializer, OctetString } from "@peculiar/asn1-schema"
 import { 
   Certificate, 
-  Name,
-  TBSCertificate,
-  Version,
   BasicConstraints,
   KeyUsage,
   SubjectKeyIdentifier,
   AuthorityKeyIdentifier,
-  AlgorithmIdentifier,
-  SubjectPublicKeyInfo,
-  Validity,
-  RelativeDistinguishedName,
-  AttributeTypeAndValue,
-  AttributeValue,
   KeyIdentifier,
 } from "@peculiar/asn1-x509"
-import { 
-  id_sha256, 
-  id_rsaEncryption, 
-  id_sha256WithRSAEncryption,
-  RSAPublicKey,
-  RSAPrivateKey
-} from "@peculiar/asn1-rsa"
-import { id_ecPublicKey, id_secp256r1, id_secp384r1, id_secp521r1, ECParameters, id_ecdsaWithSHA256, id_ecdsaWithSHA512, id_ecdsaWithSHA384 } from "@peculiar/asn1-ecc"
 import { cryptoProvider, PemConverter, X509CertificateGenerator, Extension } from "@peculiar/x509"
-import { randomBytes, createHash } from "crypto"
 import { ASN } from "./asn"
 import { wrapSodInContentInfo } from "./sod-generator"
 import fs from "fs"
